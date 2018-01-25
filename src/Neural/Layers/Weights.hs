@@ -8,13 +8,12 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-module Weights where
+module Neural.Layers.Weights where
 import qualified Prelude
 import Prelude(Double, pure, ($), (-), (*))
-import Layer
+import Neural.Layer
 import GHC.TypeLits
-import SizedArray
-import Size
+import Data.Array.Repa.SizedArray
 import Control.Monad
 import Control.Monad.Random(MonadRandom,getRandomRs)
 

@@ -2,15 +2,12 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
 module Main where
-import Size
 import Text.Read(readMaybe)
 import System.Environment(getArgs)
-import SizedArray
-import Network
-import Weights
-import Logistic
-import Layer
-import Training
+import Neural.Layers
+import Data.Array.Repa.SizedArray
+import Neural.Network
+import Neural.Training
 import qualified Prelude
 import Prelude (Double,IO,(-),(/),(+),(*),(.),(<=),putStrLn, pure, fmap)
 import Control.Monad(replicateM)
@@ -49,7 +46,7 @@ netTest n = do
     network <- initializeNet
     coords <- replicateM n getCoord
     let !samples = Prelude.zipWith toArrays coords (fmap inCircle coords)
-    trained <- trainMany samples network
+    trained <- trainMany (Params 0.5) network samples
     outputs <- (Prelude.traverse . Prelude.traverse) (prediction trained) inputs
     let rendered = (fmap . fmap) (render . getPrediction) outputs
     putStrLn (Prelude.unlines rendered)
@@ -64,8 +61,8 @@ netTest n = do
             | Prelude.otherwise = '#'
 
 getMaybe :: Prelude.Int -> [a] -> Prelude.Maybe a
+getMaybe _ [] = Prelude.Nothing
 getMaybe 0 (x:_) = Prelude.Just x
-getMaybe 1 [] = Prelude.Nothing
 getMaybe n (_:xs) = getMaybe (n-1) xs
 
 main :: IO ()

@@ -1,11 +1,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-module Logistic where
+module Neural.Layers.Logistic where
 import Prelude(Floating, Num, Show, (/), (+), (*), (-), ($), pure, exp)
-import Layer
-import Size
-import SizedArray
+import Neural.Layer
+import Data.Array.Repa.SizedArray
 
 sigmoid :: Floating a => a -> a
 sigmoid x = 1 / (1 + exp(-x))

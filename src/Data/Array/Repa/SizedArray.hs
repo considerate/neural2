@@ -7,7 +7,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE BangPatterns #-}
-module SizedArray
+module Data.Array.Repa.SizedArray
     ( (|*|)
       -- , (#>)
       -- , (<#)
@@ -40,9 +40,11 @@ module SizedArray
       , DIM1
       , DIM2
       , DIM3
+      , module Data.Array.Repa.Size
     )
 where
-import Size
+
+import Data.Array.Repa.Size
 import qualified Prelude
 import Prelude (Monad,Double,Int,(-),(/),(+),(*),($),(<$>),(.),(++),otherwise,error,Show,show,length,take)
 import qualified Data.Array.Repa as Repa
@@ -172,7 +174,7 @@ infixl 6 |*|
 
 (!) :: (Sized size, Source r Double) => SizedArray r size -> (ShapeOf size) -> Double
 (!) (SA x) shape = x Repa.! shape
---
+
 -- (<#) :: forall x y r1 r2.
 --     (KnownNat x, KnownNat y, Source r1 Double, Source r2 Double)
 --       => SizedArray r1 ('ZZ '::. x)

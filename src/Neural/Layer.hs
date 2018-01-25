@@ -6,10 +6,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Layer where
-
-import Size
-import SizedArray
+module Neural.Layer where
+import Data.Array.Repa.SizedArray
 import Control.Monad.Random
 newtype LearningParameters = Params Double
 

@@ -9,7 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-} -- GHC can't figure out that 'ZZ is a base case for Volume given the multiplication
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Size where
+module Data.Array.Repa.Size where
 import Prelude(Int,fromInteger,Show)
 import Data.Array.Repa
 import GHC.TypeLits
