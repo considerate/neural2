@@ -15,6 +15,8 @@ import Data.Array.Repa
 import GHC.TypeLits
 import Data.Proxy
 
+-- | Repa shape (Z :. Int :. Int)
+
 -- | Type-level size
 data Size = ZZ | Size ::. Nat
 infixl 3 ::.

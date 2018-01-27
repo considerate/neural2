@@ -9,15 +9,17 @@
 module Neural.Layer where
 import Data.Array.Repa.SizedArray
 import Control.Monad.Random
+import Data.Serialize
+
 newtype LearningParameters = Params Double
+newtype Grad a = Grad a
 
 -- | Randomly initialize layer
 class Randomized layer where
     randomized :: MonadRandom m => m layer
 
-
 -- | Update a layer using `LearningParameters` and layer `Gradient`
-class Randomized layer => Updatable layer where
+class (Randomized layer, Serialize layer) => Updatable layer where
     type Gradient layer :: *
     update :: LearningParameters -> layer -> Gradient layer -> layer
 

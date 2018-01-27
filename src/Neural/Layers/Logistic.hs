@@ -5,6 +5,7 @@ module Neural.Layers.Logistic where
 import Prelude(Floating, Num, Show, (/), (+), (*), (-), ($), pure, exp)
 import Neural.Layer
 import Data.Array.Repa.SizedArray
+import Data.Serialize
 
 sigmoid :: Floating a => a -> a
 sigmoid x = 1 / (1 + exp(-x))
@@ -14,6 +15,11 @@ sigmoid' y = y * (1 - y)
 
 newtype Logistic = Logistic ()
     deriving (Show)
+
+instance Serialize Logistic where
+    put _ = pure ()
+    get = pure (Logistic ())
+
 instance Randomized Logistic where
     randomized = pure $ Logistic ()
 instance Updatable Logistic where

@@ -34,14 +34,20 @@ backprop params x t (layer :~> rest) = do
     (dx, dWeights) <- backward layer x y dy
     pure (dx, (update params layer dWeights) :~> rest')
 
-trainOne :: (Sized input, net ~ Network input layers, output ~ NetOutput net, Monad m)
+trainOne :: (Sized input
+  , net ~ Network input layers
+  , output ~ NetOutput net
+  , Monad m)
          => LearningParameters
          -> net
          -> (SizedArray U input, SizedArray U output)
          -> m net
 trainOne params net (x, t) = fmap Prelude.snd (backprop params x t net)
 
-trainMany :: (Sized input, net ~ Network input layers, output ~ NetOutput net, Monad m)
+trainMany :: (Sized input
+  , net ~ Network input layers
+  , output ~ NetOutput net
+  , Monad m)
          => LearningParameters
          -> net
          -> [(SizedArray U input, SizedArray U output)]

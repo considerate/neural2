@@ -26,9 +26,12 @@ module Data.Array.Repa.SizedArray
       , sumP
       , fromFunction
       , fromList
-      , SizedArray
       , transpose
+      , backpermute
+      , traverse
+      , sumBatch
       , deepSeqArray
+      , SizedArray(..)
       , Source
       , U
       , D
@@ -46,7 +49,7 @@ where
 
 import Data.Array.Repa.Size
 import qualified Prelude
-import Prelude (Monad,Double,Int,(-),(/),(+),(*),($),(<$>),(.),(++),otherwise,error,Show,show,length,take)
+import Prelude (Monad,Double,Int,(-),(/),(+),(*),($),(<$>),(.),(++),otherwise,error,Show,show,length,take,pure)
 import qualified Data.Array.Repa as Repa
 import qualified Data.Array.Repa.Unsafe as Repa
 import qualified Data.Array.Repa.Eval as Repa
@@ -54,8 +57,18 @@ import Data.Array.Repa(Source,Array,U,D,(:.)(..),All(..),Any(..), DIM0, DIM1, DI
 import Data.Array.Repa.Eval(Load,Target)
 import GHC.TypeLits
 import Data.Proxy
+import Data.Serialize
+import Data.Vector.Serialize()
 
 newtype SizedArray r (size :: Size) = SA {getArray :: Array r (ShapeOf size) Double}
+
+instance Sized size => Serialize (SizedArray U size) where
+  put (SA x) = put (Repa.toUnboxed x)
+  get = do
+      arr <- get
+      pure $ SA $ Repa.fromUnboxed shape arr
+    where
+        shape = shapeOf (Proxy :: Proxy size)
 
 instance forall size. Sized size => Show (SizedArray U size) where
     show (SA x) = show x
@@ -147,7 +160,12 @@ expand (SA x) = x `Repa.deepSeqArray` SA $ Repa.unsafeBackpermute shape subShape
     where
         shape = shapeOf (Proxy :: Proxy big)
 
-
+(|*|) :: (Sized size, KnownNat a, KnownNat c, Source r1 Double, Source r2 Double)
+      => SizedArray r1 (size '::. a '::. b)
+      -> SizedArray r2 (size '::. b '::. c)
+      -> SizedArray D (size '::. a '::. c)
+(SA xs) |*| (SA ys) = SA $ (mmultP xs ys)
+infixl 6 |*|
 mmultP  :: (Repa.Shape sh, Source r1 Double, Source r2 Double)
         => Array r1 (sh :. Int :. Int) Double
         -> Array r2 (sh :. Int :. Int) Double
@@ -164,16 +182,32 @@ mmultP arr brr
       where
           (outer :. h1 :. _) = Repa.extent arr
           (_ :. _ :. w2) = Repa.extent brr
-(|*|) :: (Sized size, KnownNat a, KnownNat c, Source r1 Double, Source r2 Double)
-      => SizedArray r1 (size '::. a '::. b)
-      -> SizedArray r2 (size '::. b '::. c)
-      -> SizedArray D (size '::. a '::. c)
-(SA xs) |*| (SA ys) = SA $ (mmultP xs ys)
-infixl 6 |*|
 
 
 (!) :: (Sized size, Source r Double) => SizedArray r size -> (ShapeOf size) -> Double
 (!) (SA x) shape = x Repa.! shape
+
+backpermute :: forall size1 size2 r. (Sized size1, Sized size2, Source r Double)
+    => (ShapeOf size2 -> ShapeOf size1)
+    -> SizedArray r size1
+    -> SizedArray D size2
+backpermute permutation (SA xs) = SA $ Repa.unsafeBackpermute shape permutation xs
+    where
+        shape = shapeOf (Proxy :: Proxy size2)
+
+traverse :: forall size1 size2 r. (Sized size1, Sized size2, Source r Double)
+    => SizedArray r size1
+    -> ((ShapeOf size1 -> Double) -> ShapeOf size2 -> Double)
+    -> SizedArray D size2
+traverse (SA xs) f = SA $ Repa.unsafeTraverse xs (Prelude.const shape) f
+    where
+        shape = shapeOf (Proxy :: Proxy size2)
+
+sumBatch :: (Sized size, Monad m, Source r Double, KnownNat o) => SizedArray r (size '::. n '::. o) -> m (SizedArray U (size '::. o))
+sumBatch (SA xs) = computeP $ fromFunction sumRow
+    where
+        sumRow (_ :. j) = Repa.sumAllS $ Repa.unsafeSlice xs (Repa.Any :. j)
+        -- sumP (transpose (SA xs))
 
 -- (<#) :: forall x y r1 r2.
 --     (KnownNat x, KnownNat y, Source r1 Double, Source r2 Double)
