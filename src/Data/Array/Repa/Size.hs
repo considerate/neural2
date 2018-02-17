@@ -9,6 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-} -- GHC can't figure out that 'ZZ is a base case for Volume given the multiplication
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GADTs #-}
 module Data.Array.Repa.Size where
 import Prelude(Int,fromInteger,Show)
 import Data.Array.Repa
@@ -20,6 +21,14 @@ import Data.Proxy
 -- | Type-level size
 data Size = ZZ | Size ::. Nat
 infixl 3 ::.
+
+-- data SomeSize = forall size. Sized size => SomeSize (Proxy size)
+--
+-- newtype SSize (size :: Size) = SSize Size
+--
+-- withSize :: (Sized size => Proxy size -> b)
+--          -> SSize size -> Proxy size -> b
+--
 
 -- | Shape of type-level Size
 type family ShapeOf (size :: Size) :: *

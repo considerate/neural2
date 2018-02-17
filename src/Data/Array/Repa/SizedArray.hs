@@ -209,6 +209,16 @@ sumBatch (SA xs) = computeP $ fromFunction sumRow
         sumRow (_ :. j) = Repa.sumAllS $ Repa.unsafeSlice xs (Repa.Any :. j)
         -- sumP (transpose (SA xs))
 
+-- withSizedArray1 :: [Double]
+--                -> (forall n. (KnownNat n) => SizedArray U ('ZZ '::. n ) -> r)
+--                -> r
+-- withSizedArray1 inputs f
+--   = case someNatVal (Prelude.fromIntegral (Prelude.length inputs)) of
+--       Prelude.Just (SomeNat (Proxy :: Proxy n)) ->
+--           let array = fromList inputs :: SizedArray U ('ZZ '::. n)
+--           in f array
+
+
 -- (<#) :: forall x y r1 r2.
 --     (KnownNat x, KnownNat y, Source r1 Double, Source r2 Double)
 --       => SizedArray r1 ('ZZ '::. x)

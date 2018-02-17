@@ -2,12 +2,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Neural.Layers.ReLU where
-import Prelude(pure, ($), (<), (*), otherwise, Num, Ord)
+import Prelude(pure, ($), (<), (*), otherwise, Num, Ord,Show)
 import Data.Serialize
 import Neural.Layer
 import Data.Array.Repa.SizedArray
 
 newtype ReLU = ReLU ()
+    deriving(Show)
 
 instance Serialize ReLU where
     put _ = put ()

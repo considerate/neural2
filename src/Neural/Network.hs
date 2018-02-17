@@ -69,15 +69,14 @@ instance (Layer input1 layer, Layer input2 layer)
   => CastSize (Network input1 '[layer]) (Network input2 '[layer]) where
     cast (OutputLayer layer) = OutputLayer layer
 
-instance (Layer input1 layer
+instance
+  ( Layer input1 layer
   , Layer input2 layer
-  , CastSize (Network (OutputSize input1 layer) (hidden ': layers)) (Network (OutputSize input2 layer) (hidden ': layers))
-         )
-    => CastSize (Network input1 (layer ': hidden ': layers)) (Network input2 (layer ': hidden ': layers)) where
+  , CastSize
+    (Network (OutputSize input1 layer) (hidden ': layers))
+    (Network (OutputSize input2 layer) (hidden ': layers))
+  )
+    => CastSize
+        (Network input1 (layer ': hidden ': layers))
+        (Network input2 (layer ': hidden ': layers)) where
         cast (layer :~> rest) = layer :~> cast rest
-
--- instance (Layer input layer) => Updatable (Network input '[layer]) where
---     update params net grad =
-
--- instance (Layer input layer) => Layer input (Network input '[layer]) where
---

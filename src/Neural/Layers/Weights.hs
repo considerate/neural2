@@ -20,7 +20,9 @@ import GHC.Generics
 
 
 data Weights (i :: Nat) (o :: Nat)
-    = Weights {layerWeights :: !(SizedArray U ('ZZ '::. i '::. o)), layerBias :: !(SizedArray U ('ZZ '::. o))}
+    = Weights { layerWeights :: !(SizedArray U ('ZZ '::. i '::. o))
+              , layerBias :: !(SizedArray U ('ZZ '::. o))
+              }
     deriving (Show, Generic)
 
 instance (KnownNat i, KnownNat o) => Serialize (Weights i o) where
@@ -55,4 +57,3 @@ instance (KnownNat i, KnownNat o, KnownNat n, input ~ ('ZZ '::. n '::. i), outpu
         dx <- computeP $ dy |*| transpose ws
         db <- sumBatch dy
         pure (dx, Grad $ Weights dw db)
-            where

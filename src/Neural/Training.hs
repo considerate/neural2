@@ -1,11 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Neural.Training where
 import qualified Prelude
 import Prelude(Double, pure, ($))
 import Data.Array.Repa.SizedArray
 import Control.Monad
 import Neural.Network
+import GHC.TypeLits
+import Data.Proxy()
 
 predict :: (Monad m)
         => SizedArray U input
@@ -16,7 +20,7 @@ predict x (layer :~> layers) = do
     y <- forward layer x
     predict y layers
 
-backprop :: (Monad m, Source r Double, net ~ Network i layers)
+backprop :: forall m r net i layers n. (Monad m, Source r Double, net ~ Network i layers, n ~ Volume (NetOutput net), KnownNat n)
          => LearningParameters
          -> SizedArray U i
          -> SizedArray r (NetOutput net)
@@ -25,9 +29,11 @@ backprop :: (Monad m, Source r Double, net ~ Network i layers)
 backprop params x t (OutputLayer layer)
     = do
     y <- forward layer x
-    dy <- computeP (y ^- t)
+    dy <- computeP $ (y ^- t)
     (dx, dWeights) <- backward layer x y dy
     pure (dx, OutputLayer $ update params layer dWeights)
+        -- where
+            -- n = fromIntegral $ natVal (Proxy :: Proxy n)
 backprop params x t (layer :~> rest) = do
     y <- forward layer x
     (dy, rest') <- backprop params y t rest
@@ -37,6 +43,7 @@ backprop params x t (layer :~> rest) = do
 trainOne :: (Sized input
   , net ~ Network input layers
   , output ~ NetOutput net
+  , KnownNat (Volume output)
   , Monad m)
          => LearningParameters
          -> net
@@ -47,6 +54,7 @@ trainOne params net (x, t) = fmap Prelude.snd (backprop params x t net)
 trainMany :: (Sized input
   , net ~ Network input layers
   , output ~ NetOutput net
+  , KnownNat (Volume output)
   , Monad m)
          => LearningParameters
          -> net

@@ -7,15 +7,17 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Neural.Layers.Convolution where
 
-import Prelude(Double, fromInteger, ($), (-), otherwise, (<), (>=), (+), (*), Bool(..), (<$>), (<*>), pure)
+import Prelude(Double, fromInteger, ($), (-), otherwise, (<), (>=), (+), (*), Bool(..), (<$>), (<*>), pure, Show, const, sqrt, (/), fromIntegral)
 import qualified Data.Array.Repa as Repa
 import qualified Data.Array.Repa.Unsafe as Repa
 import Data.Array.Repa.SizedArray
 import Data.Proxy
 import GHC.TypeLits
-import GHC.TypeLits.Extra(Div)
+import GHC.TypeLits.Extra()
 import Data.Serialize
 import Neural.Layer
 import Control.Monad.Random(getRandomRs)
@@ -73,8 +75,8 @@ zeroPad :: forall outer height width height' width' r widthPadding heightPadding
       , padded ~ (outer '::. width' '::. height')
       , Sized size
       , Sized padded
-      , heightPadding ~ Div (height' - height) 2
-      , widthPadding ~ Div (width' - width) 2
+      , heightPadding ~ Half (height' - height)
+      , widthPadding ~ Half (width' - width)
       , Source r Double
       , KnownNat height
       , KnownNat width
@@ -100,11 +102,12 @@ zeroPad xs = traverse xs pad
           | otherwise = lookup (outer :. (py-heightPadding) :. (px-widthPadding)) -- get values from original image
 
 
-data Convolution (channels :: Nat) (kernels :: Nat) (kernelHeight :: Nat) (kernelWidth :: Nat) (resultWidth :: Nat) (resultHeight :: Nat) where
+data Convolution (channels :: Nat) (kernels :: Nat) (kernelHeight :: Nat) (kernelWidth :: Nat) (resultHeight :: Nat) (resultWidth :: Nat) where
     Convolution :: (KnownNat kernels, KnownNat channels, KnownNat kernelHeight, KnownNat kernelWidth, KnownNat resultHeight, KnownNat resultWidth)
                 => SizedArray U ('ZZ '::. kernels '::. channels '::. kernelHeight '::. kernelWidth) -- weights
                 -> SizedArray U ('ZZ '::. kernels '::. resultHeight '::. resultWidth) -- bias
                 -> Convolution channels kernels kernelHeight kernelWidth resultWidth resultHeight
+deriving instance Show (Convolution c k kh kw rw rh)
 
 instance (KnownNat kernels, KnownNat channels, KnownNat kernelHeight, KnownNat kernelWidth, KnownNat resultHeight, KnownNat resultWidth)
   => Serialize (Convolution channels kernels kernelHeight kernelWidth resultWidth resultHeight) where
@@ -113,12 +116,28 @@ instance (KnownNat kernels, KnownNat channels, KnownNat kernelHeight, KnownNat k
           put b
       get = Convolution <$> get <*> get
 
-instance (KnownNat kernels, KnownNat channels, KnownNat kernelHeight, KnownNat kernelWidth, KnownNat resultHeight, KnownNat resultWidth)
-  => Randomized (Convolution channels kernels kernelHeight kernelWidth resultWidth resultHeight) where
+instance forall kernels channels kernelHeight kernelWidth resultHeight resultWidth.
+    (KnownNat kernels
+      , KnownNat channels
+      , KnownNat kernelHeight
+      , KnownNat kernelWidth
+      , KnownNat resultHeight
+      , KnownNat resultWidth
+    )
+  => Randomized (Convolution channels kernels kernelHeight kernelWidth resultHeight resultWidth) where
       randomized = do
-        ws <- getRandomRs (-1,1)
-        b <- getRandomRs (-1,1)
-        pure $ Convolution (fromList ws) (fromList b)
+        ws <- getRandomRs (- r, r)
+        pure $ Convolution (fromList ws) (computeS $ fromFunction (const 0))
+            where
+                kernels = natVal (Proxy :: Proxy kernels)
+                -- channels = natVal (Proxy :: Proxy channels)
+                -- kernelWidth = natVal (Proxy :: Proxy kernelWidth)
+                -- kernelHeight = natVal (Proxy :: Proxy kernelHeight)
+                resultHeight = natVal (Proxy :: Proxy resultHeight)
+                resultWidth = natVal (Proxy :: Proxy resultWidth)
+                n = fromIntegral $ kernels * resultWidth * resultHeight
+                r = 1 / (sqrt n)
+                -- r = (sqrt 6) / (sqrt n_in + sqrt n_out)
 
 instance (KnownNat kernels, KnownNat channels, KnownNat kernelHeight, KnownNat kernelWidth, KnownNat resultHeight, KnownNat resultWidth)
   => Updatable (Convolution channels kernels kernelHeight kernelWidth resultWidth resultHeight) where
@@ -130,7 +149,7 @@ instance (KnownNat kernels, KnownNat channels, KnownNat kernelHeight, KnownNat k
         (computeS $ zipWith (\w dw -> w - rate * dw) ws dws)
         (computeS $ zipWith (\b db -> b - rate * db) bs dbs)
 
-convolution ::
+convolution :: forall kernels channels kernelHeight kernelWidth height width resultHeight resultWidth batches r1 r2.
     ( KnownNat channels
       , KnownNat kernels
       , KnownNat kernelHeight
@@ -146,8 +165,8 @@ convolution ::
       , (kernelWidth + resultWidth - 1) ~ (width + (2 * (kernelWidth - 1)))
       , KnownNat (height + (2 * (kernelHeight - 1)))
       , KnownNat (width + (2 * (kernelWidth - 1)))
-      , KnownNat (Div (kernelWidth + resultWidth - 1 - width) 2)
-      , KnownNat (Div (kernelHeight + resultHeight - 1 - height) 2)
+      , KnownNat (Half (kernelWidth + resultWidth - 1 - width))
+      , KnownNat (Half (kernelHeight + resultHeight - 1 - height))
       , Source r1 Double
       , Source r2 Double
     )
@@ -157,10 +176,10 @@ convolution ::
 convolution weights xs
   = correlation kernels images
         where
-            kernels = rotateWeights weights
+            kernels = rotateWeights weights :: SizedArray D ('ZZ '::. kernels '::. channels '::. kernelHeight '::. kernelWidth)
             images = zeroPad xs
 
-correlationVolumes :: forall kernels channels kernelHeight kernelWidth batches width height resultHeight resultWidth r1 r2.
+correlationWeights :: forall kernels channels kernelHeight kernelWidth batches width height resultHeight resultWidth r1 r2.
   ( KnownNat batches
     , KnownNat kernels
     , KnownNat kernelHeight
@@ -174,6 +193,15 @@ correlationVolumes :: forall kernels channels kernelHeight kernelWidth batches w
   => SizedArray r1 ('ZZ '::. batches '::. kernels '::. resultHeight '::. resultWidth)
   -> SizedArray r2 ('ZZ '::. batches '::. channels '::. height '::. width)
   -> SizedArray D ('ZZ '::. kernels '::. channels '::. kernelHeight '::. kernelWidth)
+correlationWeights (SA dy) (SA xs) = fromFunction convolve
+    where
+        batches = fromInteger $ natVal (Proxy :: Proxy batches)
+        kernelWidth = fromInteger $ natVal (Proxy :: Proxy kernelWidth)
+        kernelHeight = fromInteger $ natVal (Proxy :: Proxy kernelHeight)
+        convolve (Z :. k :. c :. a :. b) = Repa.sumAllS (kernel Repa.*^ image)
+            where
+                kernel = Repa.extract (Z :. 0 :. k :. 0 :. 0) (Z :. batches:. 1 :. kernelHeight :. kernelWidth) dy
+                image = Repa.extract (Z :. 0 :. c :. a :. b) (Z :. batches :. 1 :. kernelHeight :. kernelWidth) xs
 
 sumBatch' :: (Source r Double, KnownNat batches, KnownNat channels, KnownNat resultHeight, KnownNat resultWidth)
           => SizedArray r ('ZZ '::. batches '::. channels '::. resultHeight '::. resultWidth)
@@ -181,16 +209,17 @@ sumBatch' :: (Source r Double, KnownNat batches, KnownNat channels, KnownNat res
 sumBatch' (SA xs) = fromFunction sumRow
     where
         sumRow (Z :. c :. y :. x) = Repa.sumAllS $ Repa.unsafeSlice xs (Repa.Any :. c :. y :. x)
-correlationVolumes (SA weights) (SA xs) = fromFunction convolve
-    where
-        batches = fromInteger $ natVal (Proxy :: Proxy batches)
-        kernelWidth = fromInteger $ natVal (Proxy :: Proxy kernelWidth)
-        kernelHeight = fromInteger $ natVal (Proxy :: Proxy kernelHeight)
-        convolve (Z :. k :. c :. ky :. kx) = Repa.sumAllS (kernel Repa.*^ image)
-            where
-                kernel = Repa.extract (Z :. 0 :. k :. 0 :. 0) (Z :. batches:. 1 :. kernelHeight :. kernelWidth) weights
-                image = Repa.extract (Z :. 0 :. c :. ky :. kx) (Z :. batches :. 1 :. kernelHeight :. kernelWidth) xs
 
+type family Half (n :: Nat) :: Nat where
+    Half 0 = 0
+    Half n = Half (n-2) + 1
+
+-- Assuming stride = 1
+-- Assuming padding = 1
+-- resultWidth = (width - kernelWidth + 2P)/S +1
+-- resultWidth = width - kernelWidth + 2 + 1
+-- resultWidth = width - kernelWidth + 3
+-- width = resultWidth + kernelWidth - 3
 instance (KnownNat kernels
   , KnownNat channels
   , KnownNat kernelHeight
@@ -206,9 +235,9 @@ instance (KnownNat kernels
   , (kernelWidth + width - 1) ~ (resultWidth + (2 * (kernelWidth - 1)))
   , KnownNat (resultHeight + (2 * (kernelHeight - 1)))
   , KnownNat (resultWidth + (2 * (kernelWidth - 1)))
-  , KnownNat (Div (kernelWidth + width - 1 - resultWidth) 2)
-  , KnownNat (Div (kernelHeight + height - 1 - resultHeight) 2)
-         )
+  , KnownNat (Half (kernelWidth + width - 1 - resultWidth))
+  , KnownNat (Half (kernelHeight + height - 1 - resultHeight))
+  )
     => Layer
     ('ZZ '::. batches '::. channels '::. height '::. width)
     (Convolution channels kernels kernelHeight kernelWidth resultWidth resultHeight) where
@@ -221,7 +250,7 @@ instance (KnownNat kernels
 
         backward (Convolution ws _) x _ dy = do
             dx <- computeP $ ws `convolution` dy
-            dw <- computeP $ dy `correlationVolumes` x
+            dw <- computeP $ dy `correlationWeights` x
             db <- computeP $ sumBatch' dy
             pure (dx, Grad $ Convolution dw db)
 

@@ -19,7 +19,7 @@ class Randomized layer where
     randomized :: MonadRandom m => m layer
 
 -- | Update a layer using `LearningParameters` and layer `Gradient`
-class (Randomized layer, Serialize layer) => Updatable layer where
+class (Serialize layer) => Updatable layer where
     type Gradient layer :: *
     update :: LearningParameters -> layer -> Gradient layer -> layer
 
